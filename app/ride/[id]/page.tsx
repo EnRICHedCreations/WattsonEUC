@@ -1,10 +1,11 @@
-import { createPublicServerClient } from "@/lib/supabase-server";
 import { SpeedGauge } from "@/components/SpeedGauge";
 import { RouteMap } from "@/components/RouteMap";
 import { StatGrid } from "@/components/StatGrid";
 import { TelemetryChart } from "@/components/TelemetryChart";
 import { PoweredByFooter } from "@/components/PoweredByFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { getRideById } from "@/lib/queries";
+import Link from "next/link";
 import {
   formatDate,
   formatDistanceMeters,
@@ -12,20 +13,7 @@ import {
   formatSpeed,
   formatTemp,
 } from "@/lib/format";
-import type { SharedRide } from "@/lib/types";
 import type { Metadata } from "next";
-
-async function getRide(id: string): Promise<SharedRide | null> {
-  const supabase = createPublicServerClient();
-  const { data, error } = await supabase
-    .from("shared_rides")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error || !data) return null;
-  return data as SharedRide;
-}
 
 export async function generateMetadata({
   params,
@@ -33,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const ride = await getRide(id);
+  const ride = await getRideById(id);
   if (!ride) return { title: "Ride not found -- Wattson" };
 
   return {
@@ -48,7 +36,7 @@ export default async function RidePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ride = await getRide(id);
+  const ride = await getRideById(id);
 
   if (!ride) {
     return (
@@ -82,6 +70,14 @@ export default async function RidePage({
           {ride.rider_nickname ? `${ride.rider_nickname} · ` : ""}
           {ride.wheel_brand} {ride.wheel_model}
         </div>
+        {ride.gps_route.length >= 2 && (
+          <Link
+            href={`/ride/${ride.id}/replay`}
+            className="inline-block mt-3 font-display text-xs uppercase tracking-wide px-4 py-2 rounded-full border border-reactor-blue text-reactor-blue hover:bg-reactor-blue hover:text-gunmetal transition-colors"
+          >
+            ▶ Replay Ride
+          </Link>
+        )}
       </div>
 
       <div className="my-8 fade-up" style={{ animationDelay: "0.1s" }}>

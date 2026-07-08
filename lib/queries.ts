@@ -2,6 +2,24 @@ import { createPublicServerClient } from "@/lib/supabase-server";
 import type { SharedRide } from "@/lib/types";
 
 /**
+ * Full ride fetch (includes gps_route + telemetry) -- shared between the
+ * ride detail page and the replay page so both stay in sync rather than
+ * each re-implementing the same query independently.
+ */
+export async function getRideById(id: string): Promise<SharedRide | null> {
+  const supabase = createPublicServerClient();
+  const { data, error } = await supabase
+    .from("shared_rides")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return null;
+  return data as SharedRide;
+}
+
+
+/**
  * Summary shape for list/leaderboard views -- deliberately excludes
  * gps_route and telemetry (the two heavy JSONB columns), since a
  * leaderboard or recent-rides feed never needs per-point data, only the
