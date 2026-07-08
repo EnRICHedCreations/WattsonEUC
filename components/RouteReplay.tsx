@@ -33,9 +33,12 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
+  const hasEnoughData = route.length >= 2;
+
   // One-time map setup: base tile layer + faint full-route guide line.
+  // Guarded by hasEnoughData so this never runs against a too-short route.
   useEffect(() => {
-    if (!containerRef.current || route.length < 2 || mapRef.current) return;
+    if (!containerRef.current || !hasEnoughData || mapRef.current) return;
 
     import("leaflet").then((L) => {
       if (!containerRef.current) return;
@@ -69,15 +72,17 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [route]);
+  }, [route, hasEnoughData]);
 
   // Redraws the traveled segment + marker position whenever progress changes.
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapRef.current;
-    if (!L || !map || route.length < 2) return;
+    if (!L || !map || !hasEnoughData) return;
 
-    const travelIndex = Math.min(route.length - 1, Math.floor(progress * (route.length - 1)));
+    const travelIndex = clampIndex(Math.floor(progress * (route.length - 1)), route.length);
+    if (travelIndex === null) return;
+
     const traveledLatLngs: [number, number][] = route.slice(0, travelIndex + 1).map((p) => [p.lat, p.lon]);
 
     if (traveledLatLngs.length >= 1) {
@@ -86,7 +91,7 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
       markerRef.current?.setLatLng(current);
       map.panTo(current, { animate: false });
     }
-  }, [progress, route]);
+  }, [progress, route, hasEnoughData]);
 
   // requestAnimationFrame-driven playback loop.
   useEffect(() => {
@@ -121,20 +126,24 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
     setIsPlaying((p) => !p);
   }
 
-  function handleScrub(value: number) {
+  function handleScrub(rawValue: string) {
+    const value = parseFloat(rawValue);
+    if (Number.isNaN(value)) return; // defensively ignore an invalid slider event rather than propagate NaN
     setIsPlaying(false);
     setProgress(value);
   }
 
-  const currentTelemetry = getNearestTelemetry(route, telemetry, progress);
-
-  if (route.length < 2) {
+  // Not enough data to replay -- bail BEFORE computing anything that
+  // indexes into route/telemetry, matching the guard used for map setup.
+  if (!hasEnoughData) {
     return (
       <div className="bg-surface/50 rounded-lg p-8 text-center text-cream/40 text-sm">
         Not enough GPS data for a replay.
       </div>
     );
   }
+
+  const currentTelemetry = getNearestTelemetry(route, telemetry, progress);
 
   return (
     <div className="space-y-4">
@@ -160,7 +169,7 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
           max={1}
           step={0.001}
           value={progress}
-          onChange={(e) => handleScrub(parseFloat(e.target.value))}
+          onChange={(e) => handleScrub(e.target.value)}
           className="w-full accent-suit-red"
         />
 
@@ -175,18 +184,29 @@ export function RouteReplay({ route, telemetry }: RouteReplayProps) {
   );
 }
 
+/** Returns a valid array index for the given length, or null if that's not possible (empty array, or a non-finite input like NaN). */
+function clampIndex(rawIndex: number, length: number): number | null {
+  if (length === 0 || !Number.isFinite(rawIndex)) return null;
+  return Math.min(length - 1, Math.max(0, rawIndex));
+}
+
 function getNearestTelemetry(
   route: GpsRoutePoint[],
   telemetry: TelemetryPointDto[],
   progress: number
 ): TelemetryPointDto | null {
   if (route.length === 0 || telemetry.length === 0) return null;
-  const routeIndex = Math.min(route.length - 1, Math.floor(progress * (route.length - 1)));
-  const targetTimestamp = route[routeIndex].timestampMillis;
 
-  let nearest = telemetry[0];
-  let smallestDelta = Math.abs(telemetry[0].timestampMillis - targetTimestamp);
+  const routeIndex = clampIndex(Math.floor(progress * (route.length - 1)), route.length);
+  const routePoint = routeIndex !== null ? route[routeIndex] : undefined;
+  if (!routePoint) return null;
+
+  const targetTimestamp = routePoint.timestampMillis;
+
+  let nearest: TelemetryPointDto | null = null;
+  let smallestDelta = Infinity;
   for (const point of telemetry) {
+    if (!point) continue;
     const delta = Math.abs(point.timestampMillis - targetTimestamp);
     if (delta < smallestDelta) {
       smallestDelta = delta;
