@@ -4,6 +4,7 @@ import { RouteMap } from "@/components/RouteMap";
 import { StatGrid } from "@/components/StatGrid";
 import { TelemetryChart } from "@/components/TelemetryChart";
 import { PoweredByFooter } from "@/components/PoweredByFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import {
   formatDate,
   formatDistanceMeters,
@@ -51,13 +52,16 @@ export default async function RidePage({
 
   if (!ride) {
     return (
-      <main className="relative min-h-screen flex items-center justify-center text-center px-6">
-        <div className="fade-up">
-          <div className="font-mono-data text-suit-red text-xs uppercase tracking-[0.3em] mb-3">// signal lost</div>
-          <h1 className="font-display text-4xl text-cream mb-2">Ride not found</h1>
-          <p className="text-cream/50">This link may be broken, or the ride was removed.</p>
-        </div>
-      </main>
+      <>
+        <SiteHeader />
+        <main className="relative min-h-screen flex items-center justify-center text-center px-6">
+          <div className="fade-up">
+            <div className="font-mono-data text-suit-red text-xs uppercase tracking-[0.3em] mb-3">// signal lost</div>
+            <h1 className="font-display text-4xl text-cream mb-2">Ride not found</h1>
+            <p className="text-cream/50">This link may be broken, or the ride was removed.</p>
+          </div>
+        </main>
+      </>
     );
   }
 
@@ -67,7 +71,9 @@ export default async function RidePage({
   const voltageSeries = ride.telemetry.map((t) => t.voltage);
 
   return (
-    <main className="relative min-h-screen px-4 py-14 md:px-8 max-w-3xl mx-auto">
+    <>
+      <SiteHeader />
+      <main className="relative min-h-screen px-4 py-14 md:px-8 max-w-3xl mx-auto">
       <div className="text-center mb-2 fade-up">
         <div className="font-mono-data text-reactor-blue text-[11px] uppercase tracking-[0.3em] mb-1">
           {formatDate(ride.ride_start_time_millis)}
@@ -113,6 +119,7 @@ export default async function RidePage({
       )}
 
       <PoweredByFooter />
-    </main>
+      </main>
+    </>
   );
 }
