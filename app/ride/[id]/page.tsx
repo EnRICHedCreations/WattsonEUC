@@ -93,7 +93,7 @@ export default async function RidePage({
             { label: "Battery", value: `${ride.start_battery_percent}% -> ${ride.end_battery_percent ?? "?"}%` },
             { label: "Max Current", value: `${ride.max_current_amps.toFixed(1)} A` },
             { label: "Max Power", value: `${Math.round(ride.max_power_watts)} W` },
-            { label: "Board Temp", value: formatTemp(ride.max_motor_temp_celsius) },
+            { label: "Motor Temp", value: formatTemp(ride.max_motor_temp_celsius) },
             { label: "Points Logged", value: `${ride.telemetry.length}` },
           ]}
         />
